@@ -73,7 +73,7 @@ body.reveal-mode #photos{opacity:1}
  .paper .letter-label,.paper .letter-text{visibility:hidden}
 .paper.music-ready .letter-label,.paper.music-ready .letter-text{visibility:visible}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
-.music-wrap{position:fixed!important;width:200px;height:200px;right:0;bottom:0;opacity:.01;pointer-events:none;z-index:-1;overflow:hidden}.music-player{width:200px;height:200px;border:0}
+#musicWrap{display:none}body.music-started #musicWrap{display:block}.music-wrap{position:fixed!important;width:min(220px,48vw);height:auto;right:10px;bottom:10px;opacity:1;pointer-events:auto;z-index:50;overflow:visible;background:rgba(25,14,19,.92);padding:5px;border:1px solid rgba(226,201,183,.55);border-radius:10px;box-shadow:0 4px 18px #0008}.music-player{display:block;width:100%;height:min(124px,27vw);min-height:92px;border:0;border-radius:6px;margin:0}
 </style>
 </head>
 <body>
@@ -217,9 +217,10 @@ function revealLetterAfterPlayback(){
 function startMusic(){
  if(musicStarted)return;
  musicStarted=true;
+ document.body.classList.add('music-started');
  // Set the iframe source synchronously in the successful name-submit gesture,
  // giving mobile browsers the best chance to allow autoplay.
- musicPlayer.src='https://www.youtube-nocookie.com/embed/'+musicVideo+'?autoplay=1&playsinline=1&controls=0&rel=0&modestbranding=1';
+ musicPlayer.src='https://www.youtube.com/embed/'+musicVideo+'?autoplay=1&playsinline=1&controls=1&rel=0&modestbranding=1';
 }
 </script>
 </body>
