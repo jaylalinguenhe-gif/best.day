@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#211016">
+<title>Painel privado — Best Day</title>
+<style>
+:root{color-scheme:dark;--bg:#160f13;--panel:#24171d;--line:#60414c;--text:#f5eee8;--muted:#c6b5b3;--accent:#c5a477;--wine:#7b4052}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,sans-serif;padding:24px 16px 60px}
+main{max-width:1000px;margin:auto}h1,h2{font-family:Georgia,serif;font-weight:400}h1{font-size:2rem}h2{font-size:1.5rem;margin:30px 0 12px}.muted{color:var(--muted)}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:18px 0}
+label{display:block;margin:12px 0 5px;color:var(--muted)}input{width:100%;padding:13px;border-radius:10px;border:1px solid var(--line);background:#120c10;color:var(--text);font:inherit}button{border:1px solid var(--accent);background:transparent;color:var(--text);border-radius:999px;padding:11px 20px;font:inherit;cursor:pointer;margin-top:14px}button.primary{background:var(--wine)}button:disabled{opacity:.5}.status{min-height:24px;color:var(--accent);margin-top:10px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:620px;font-size:.9rem}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}th{color:var(--accent);font-weight:600}.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.hidden{display:none!important}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 9px;color:var(--muted);font-size:.8rem}
+</style>
+</head>
+<body>
+<main>
+<h1>Painel privado</h1>
+<p class="muted">Entra com a conta de administradora que criaste no Supabase. Só a conta autorizada poderá consultar os registos.</p>
+<section id="loginPanel" class="panel">
+<h2>Iniciar sessão</h2>
+<form id="loginForm">
+<label for="email">E-mail</label><input id="email" type="email" autocomplete="username" required>
+<label for="password">Palavra-passe</label><input id="password" type="password" autocomplete="current-password" required>
+<button class="primary" type="submit">Entrar</button>
+</form><div id="loginStatus" class="status" role="status"></div>
+</section>
+<section id="dashboard" class="hidden">
+<div class="section-head"><p id="signedIn" class="muted"></p><button id="refreshBtn">Atualizar dados</button><button id="logoutBtn">Terminar sessão</button></div>
+<div class="panel"><h2>Visitas</h2><p class="muted">Cada abertura do website é registada. O identificador do navegador ajuda a agrupar visitas; pode mudar se a pessoa limpar os dados do navegador ou trocar de dispositivo.</p><div class="table-wrap"><table><thead><tr><th>Data</th><th>Nome inserido</th><th>Tipo</th><th>Dispositivo / navegador</th><th>ID do navegador</th></tr></thead><tbody id="visitsBody"></tbody></table></div></div>
+<div class="panel"><h2>Respostas do quiz</h2><div class="table-wrap"><table><thead><tr><th>Data</th><th>Pergunta</th><th>Resposta</th><th>Correcta?</th><th>ID do navegador</th></tr></thead><tbody id="answersBody"></tbody></table></div></div>
+</section>
+<p class="muted">Nota: o tipo de dispositivo é estimado pelo navegador. O website não consegue obter automaticamente o e-mail ou o nome real de visitantes que não iniciem sessão.</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://kegyajtbkbjziuvqcnub.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_uBZMAxf7SbRndTeY7OGz9Q_iRyxqpX0';
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const $=id=>document.getElementById(id);
+function cell(row,value){const td=document.createElement('td');td.textContent=value==null?'—':String(value);row.appendChild(td)}
+function dateText(value){return value?new Date(value).toLocaleString():'—'}
+async function loadData(){
+ $('refreshBtn').disabled=true;$('loginStatus').textContent='A carregar…';
+ const [v,a]=await Promise.all([
+  db.from('visits').select('visitor_id,entered_name,is_anonymous,device_info,visited_at').order('visited_at',{ascending:false}).limit(500),
+  db.from('quiz_answers').select('visitor_id,question_number,answer,is_correct,answered_at').order('answered_at',{ascending:false}).limit(1000)
+ ]);
+ if(v.error||a.error){$('loginStatus').textContent='Não foi possível carregar os dados: '+(v.error?.message||a.error?.message);$('refreshBtn').disabled=false;return}
+ $('visitsBody').replaceChildren();
+ for(const x of v.data){const tr=document.createElement('tr');cell(tr,dateText(x.visited_at));cell(tr,x.entered_name);cell(tr,x.is_anonymous?'Anónimo / página aberta':'Nome aceite');cell(tr,x.device_info);cell(tr,x.visitor_id);$('visitsBody').appendChild(tr)}
+ $('answersBody').replaceChildren();
+ for(const x of a.data){const tr=document.createElement('tr');cell(tr,dateText(x.answered_at));cell(tr,x.question_number);cell(tr,x.answer);cell(tr,x.is_correct===null?'—':x.is_correct?'Sim':'Não');cell(tr,x.visitor_id);$('answersBody').appendChild(tr)}
+ $('loginStatus').textContent=`Carregado: ${v.data.length} registos de visitas e ${a.data.length} respostas.`;$('refreshBtn').disabled=false;
+}
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginStatus').textContent='A iniciar sessão…';const {data,error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){$('loginStatus').textContent='Não foi possível entrar: '+error.message;return}$('loginPanel').classList.add('hidden');$('dashboard').classList.remove('hidden');$('signedIn').textContent='Sessão iniciada: '+(data.user.email||'administradora');await loadData()});
+$('refreshBtn').addEventListener('click',loadData);
+$('logoutBtn').addEventListener('click',async()=>{await db.auth.signOut();$('dashboard').classList.add('hidden');$('loginPanel').classList.remove('hidden');$('loginStatus').textContent='Sessão terminada.'});
+(async()=>{const {data}=await db.auth.getSession();if(data.session){$('loginPanel').classList.add('hidden');$('dashboard').classList.remove('hidden');$('signedIn').textContent='Sessão iniciada: '+(data.session.user.email||'administradora');await loadData()}})();
+</script>
+</body>
+</html>
